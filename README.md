@@ -30,13 +30,13 @@ The algorithm generates the planning in both json format and excel (work in prog
 with the name ___planning_YEAR_MONTH.json___ or ___planning_YEAR_MONTH.xlsx___.
 
 ### TODO's
--[ ] keep track of last month's planning (for continuity)
--[ ] keep track of free days (assign them randomly or at will)
--[ ] modify the leave for "in_shift" from 3 to 2 days (and keep track of free days)
--[ ] write tests
+ -[ ] keep track of last month's planning (for continuity)
+ -[ ] keep track of free days (assign them randomly or at will)
+ -[ ] modify the leave for "in_shift" from 3 to 2 days (and keep track of free days)
+ -[ ] write tests
 
 ### Done
--[x] keep track of leaves
--[x] assign employees to specific days
--[x] gender specific shifts (for whatever reason, duh)
--[x] wrote code for non-existent planning (backtracking found no solution)
+ -[x] keep track of leaves
+ -[x] assign employees to specific days
+ -[x] gender specific shifts (for whatever reason, duh)
+ -[x] wrote code for non-existent planning (backtracking found no solution)
