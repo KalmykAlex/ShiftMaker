@@ -22,9 +22,8 @@ num_days = calendar.monthrange(config['year'], config['month'])[1]
 planning = {date(config['year'], config['month'], day): [] for day in range(1, num_days+1)}
 
 
-# Team and shifts init
+# Team init
 workers = []
-shifts = {0: [], 1: [], 2: [], 3: []}
 
 # Team setup + leaves + mandatory shifts
 for worker in config['workers']:
@@ -85,17 +84,21 @@ def backtrack(plan, day, team, limit):
     else:
         if not plan[day]:
             day -= timedelta(days=1)
-            if len(plan[day]) == 2:
-                plan[day][0].remove_last_leave()
-                plan[day][1].remove_last_leave()
-                blacklist.append((plan[day][random.randint(0, 1)], day))
-            elif len(plan[day]) == 1:
-                plan[day][0].remove_last_leave()
-                blacklist.append((plan[day][0], day))
-            plan[day] = []
-            for (person, d) in blacklist:
-                if d > day:
-                    blacklist.remove((person, d))
+            try:
+                if len(plan[day]) == 2:
+                    plan[day][0].remove_last_leave()
+                    plan[day][1].remove_last_leave()
+                    blacklist.append((plan[day][random.randint(0, 1)], day))
+                elif len(plan[day]) == 1:
+                    plan[day][0].remove_last_leave()
+                    blacklist.append((plan[day][0], day))
+                plan[day] = []
+                for (person, d) in blacklist:
+                    if d > day:
+                        blacklist.remove((person, d))
+            except KeyError:
+                print('No possible solution!')
+                exit()
             backtrack(plan, day, team, 1)  # previous day
 
     backtrack(plan, day + timedelta(days=1), team, limit)  # next day
