@@ -1,9 +1,8 @@
 import json
 import yaml
 import random
-import pandas
 import calendar
-from datetime import timedelta, date
+from datetime import date, datetime, timedelta
 
 from person import Person
 from json_encoders import PersonEncoder
@@ -23,22 +22,38 @@ planning = {date(config['year'], config['month'], day): [] for day in range(1, n
 
 
 # Team init
-workers = []
+employees = []
 
 # Team setup + leaves + mandatory shifts
-for worker in config['employees']:
-    p = Person(worker['first_name'],
-               worker['last_name'],
-               worker['gender'])
+for employee in config['employees']:
+    p = Person(employee['first_name'],
+               employee['last_name'],
+               employee['gender'])
     try:
-        for leave in worker['leaves']:
+        for leave in employee['leaves']:
             p.set_leave(start=leave['start_date'],
                         end=leave['end_date'])
-        for date in worker['mandatory_shifts']:
-            p.set_mandatory_shift(day=date)
+        for d in employee['mandatory_shifts']:
+            p.set_mandatory_shift(day=d)
     except KeyError:
         pass
-    workers.append(p)
+    employees.append(p)
+
+
+# Check for last month planning
+def check_last_planning():
+    previous_planning = (date(config['year'], config['month'], 1) - timedelta(days=1)).strftime('planning_%Y_%#m.json')
+    try:
+        with open(previous_planning, 'r') as json_file:
+            shifts = json.load(json_file)
+            for shift in list(shifts.items())[-4:]:
+                day = datetime.strptime(shift[0], '%Y-%m-%d').date()
+                for e in employees:
+                    for last_name in shift[1]:
+                        if last_name == e.last_name:
+                            e.in_shift(day)
+    except FileNotFoundError:
+        print('Last month\'s planning not found')
 
 
 # Init Blacklist (used for backtracking)
@@ -104,22 +119,18 @@ def backtrack(plan, day, team, limit):
     backtrack(plan, day + timedelta(days=1), team, limit)  # next day
 
 
+# For shift continuity
+check_last_planning()
+
 # Call to main function
 backtrack(plan=planning,
           day=list(planning.keys())[0],
-          team=workers,
+          team=employees,
           limit=2)
 
 
 planning = dict((day.isoformat(), value) for (day, value) in planning.items())
 
-
 # Save planning to JSON
 with open(f'planning_{config["year"]}_{config["month"]}.json', 'w') as outfile:
     json.dump(planning, outfile, indent=4, cls=PersonEncoder)
-
-
-# Save planning to Excel (rudimentary)
-df = pandas.DataFrame.from_dict(data=planning, orient='index')
-df = df.transpose()
-df.to_excel(f'planning_{config["year"]}_{config["month"]}.xlsx')
