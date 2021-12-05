@@ -29,8 +29,10 @@ workers:
 The algorithm generates the planning in both json format and excel (work in progress) in the same folder
 with the name ___planning_YEAR_MONTH.json___ or ___planning_YEAR_MONTH.xlsx___.
 
-### TODOs
- - write code for non-existent planning (backtracking found no solution)
- - keep track of last month's planning (for continuity)
- - modify the leave for "in_shift" from 3 to 2 days (and keep track of free days)
- - write tests
+### TODO's
+ -[ ] keep track of last month's planning (for continuity)
+ -[ ] modify the leave for "in_shift" from 3 to 2 days (and keep track of free days)
+ -[ ] write tests
+
+### Done
+ -[x] write code for non-existent planning (backtracking found no solution)

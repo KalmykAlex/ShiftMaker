@@ -26,7 +26,7 @@ planning = {date(config['year'], config['month'], day): [] for day in range(1, n
 workers = []
 
 # Team setup + leaves + mandatory shifts
-for worker in config['workers']:
+for worker in config['employees']:
     p = Person(worker['first_name'],
                worker['last_name'],
                worker['gender'])
