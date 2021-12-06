@@ -1,6 +1,7 @@
 import json
 import yaml
 import random
+import pandas
 import calendar
 from datetime import date, datetime, timedelta
 
@@ -159,8 +160,27 @@ backtrack(plan=planning,
           limit=2)
 
 
-planning = dict((day.isoformat(), value) for (day, value) in planning.items())
+planning_2 = dict((day.isoformat(), value) for (day, value) in planning.items())
 
 # Save planning to JSON
 with open(f'planning_{config["year"]}_{config["month"]}.json', 'w') as outfile:
-    json.dump(planning, outfile, indent=4, cls=PersonEncoder)
+    json.dump(planning_2, outfile, indent=4, cls=PersonEncoder)
+
+
+# Generate excel planning
+def generate_excel(emp_list: list, plan: dict):
+    employee_dict = {worker.last_name: [] for worker in emp_list}
+    for worker in emp_list:
+        for day, workers in plan.items():
+            if worker in workers:
+                employee_dict[worker.last_name].append('24')
+            elif day in worker.free_days:
+                employee_dict[worker.last_name].append('R')
+            else:
+                employee_dict[worker.last_name].append('L')
+    columns = [d.strftime('%d') for d in plan.keys()]
+    df = pandas.DataFrame.from_dict(data=employee_dict, orient='index', columns=columns)
+    df.to_excel(f'planning_{config["year"]}_{config["month"]}.xlsx')
+
+
+generate_excel(employees, planning)

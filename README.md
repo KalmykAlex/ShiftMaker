@@ -30,13 +30,14 @@ employees:
 ```
 
 ### Outputs
-The algorithm generates the planning in __json__ format in the same folder
-with the name ___planning_YEAR_MONTH.json___.
+The algorithm generates the planning in __json__ and in __excel__ format in the same folder
+with the names _planning_YEAR_MONTH.json_ and _planning_YEAR_MONTH.xlsx_.
 
 ### TODO
 
  - [ ] make free_days for in_shift reduce from 3 to 2 if backtracking finds no solutions (and keep track of free days)
  - [ ] write tests
+ - [x] generate excel planning (without leaves)
  - [x] keep track of free days (assign them randomly or at will)
  - [x] keep track of leaves
  - [x] assign employees to specific days
