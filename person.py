@@ -8,6 +8,7 @@ class Person:
         self.gender = gender
         self.leaves = []
         self.mandatory_shift_days = []
+        self.free_days = []
 
     def __repr__(self):
         return f'{self.first_name} {self.last_name}'
@@ -39,5 +40,8 @@ class Person:
                 return True
         return False
 
-    def in_shift(self, day: date):
-        self.set_leave(day, day + timedelta(days=3))
+    def in_shift(self, day: date, free_days=3):
+        for free_day in self.free_days:
+            if day <= free_day <= day + timedelta(days=3):
+                free_days += 1
+        self.set_leave(day, day + timedelta(days=free_days))

@@ -24,17 +24,47 @@ planning = {date(config['year'], config['month'], day): [] for day in range(1, n
 # Team init
 employees = []
 
-# Team setup + leaves + mandatory shifts
+# Team setup + leaves + mandatory shifts + free days
 for employee in config['employees']:
     p = Person(employee['first_name'],
                employee['last_name'],
                employee['gender'])
     try:
+        # leaves
         for leave in employee['leaves']:
             p.set_leave(start=leave['start_date'],
                         end=leave['end_date'])
-        for d in employee['mandatory_shifts']:
-            p.set_mandatory_shift(day=d)
+        # mandatory shifts
+        for mandatory_day in employee['mandatory_shifts']:
+            for period in p.leaves:
+                if period[0] <= mandatory_day <= period[1]:
+                    raise Exception(f'Mandatory shift is in a leave period: {mandatory_day}')
+                else:
+                    p.set_mandatory_shift(day=mandatory_day)
+            p.set_leave(start=mandatory_day - timedelta(days=2), end=mandatory_day - timedelta(days=1))
+        # free days
+        if isinstance(employee['free_days'], list):
+            for free_day in employee['free_days']:
+                if free_day not in employee['mandatory_shifts']:
+                    p.free_days.append(free_day)
+                    p.set_leave(start=free_day, end=free_day)
+                else:
+                    print(f'[ERROR] Free day is in a mandatory shift day: {free_day}')
+        elif isinstance(employee['free_days'], int):
+            i = 1
+            while i <= employee['free_days']:
+                free_day = date(config['year'], config['month'], random.randint(1, num_days))
+                if free_day not in p.mandatory_shift_days:
+                    if free_day in p.free_days:
+                        continue
+                    for leave_days in employee['leaves']:
+                        if leave_days['start_date'] <= free_day <= leave_days['end_date']:
+                            break
+                        else:
+                            p.free_days.append(free_day)
+                            p.set_leave(start=free_day, end=free_day)
+                            i += 1
+                            break
     except KeyError:
         pass
     employees.append(p)
