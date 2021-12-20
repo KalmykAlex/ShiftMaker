@@ -36,6 +36,9 @@ for employee in config['employees']:
             p.set_leave(start=leave['start_date'],
                         end=leave['end_date'])
         # mandatory shifts
+    except KeyError:
+        pass
+    try:
         for mandatory_day in employee['mandatory_shifts']:
             for period in p.leaves:
                 if period[0] <= mandatory_day <= period[1]:
@@ -43,6 +46,9 @@ for employee in config['employees']:
                 else:
                     p.set_mandatory_shift(day=mandatory_day)
             p.set_leave(start=mandatory_day - timedelta(days=2), end=mandatory_day - timedelta(days=1))
+    except KeyError:
+        pass
+    try:
         # free days
         if isinstance(employee['free_days'], list):
             for free_day in employee['free_days']:
@@ -58,14 +64,19 @@ for employee in config['employees']:
                 if free_day not in p.mandatory_shift_days:
                     if free_day in p.free_days:
                         continue
-                    for leave_days in employee['leaves']:
-                        if leave_days['start_date'] <= free_day <= leave_days['end_date']:
-                            break
-                        else:
-                            p.free_days.append(free_day)
-                            p.set_leave(start=free_day, end=free_day)
-                            i += 1
-                            break
+                    try:
+                        for leave_days in employee['leaves']:
+                            if leave_days['start_date'] <= free_day <= leave_days['end_date']:
+                                break
+                            else:
+                                p.free_days.append(free_day)
+                                p.set_leave(start=free_day, end=free_day)
+                                i += 1
+                                break
+                    except KeyError:
+                        p.free_days.append(free_day)
+                        p.set_leave(start=free_day, end=free_day)
+                        i += 1
     except KeyError:
         pass
     employees.append(p)
@@ -113,7 +124,7 @@ def backtrack(plan, day, team, limit):
         if not person.is_available(day):
             continue
         # check if in blacklist (backtracking)
-        if (person, day) in blacklist:
+        elif (person, day) in blacklist:
             continue
         # check if more than 2 people in shift
         elif len(plan[day]) >= limit:
