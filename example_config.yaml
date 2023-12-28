@@ -1,0 +1,25 @@
+---
+year: 2024
+month: 1
+employees:
+  - first_name: A
+    last_name: A
+    gender: M
+    leaves: 
+      - start_date: 2024-01-01
+        end_date: 2024-01-20
+      - start_date: 2024-06-01
+        end_date: 2024-06-15
+    mandatory_shifts: 
+      - 2024-01-22
+      - 2024-01-26
+    free_days: 2
+  - first_name: B
+    last_name: B
+    gender: M
+  - first_name: C
+    last_name: C
+    gender: F
+  - first_name: D
+    last_name: D
+    gender: F

@@ -9,81 +9,62 @@ from person import Person
 from json_encoders import PersonEncoder
 
 
-# Importing config from yaml
-with open('config.yaml', 'r') as stream:
-    try:
-        config = yaml.safe_load(stream)
-    except yaml.YAMLError as err:
-        print(err)
+def load_config():
+    with open('example_config.yaml', 'r') as stream:
+        try:
+            return yaml.safe_load(stream)
+        except yaml.YAMLError as err:
+            raise Exception(err)
 
 
-# Empty planning setup
-num_days = calendar.monthrange(config['year'], config['month'])[1]
-planning = {date(config['year'], config['month'], day): [] for day in range(1, num_days+1)}
+def initialize_planning(year, month):
+    num_days = calendar.monthrange(year, month)[1]
+    return {date(year, month, day): [] for day in range(1, num_days + 1)}
 
 
-# Team init
-employees = []
+def initialize_team(config, num_days):
+    employees = []
+    for employee in config['employees']:
+        p = Person(employee['first_name'], employee['last_name'], employee['gender'])
 
-# Team setup + leaves + mandatory shifts + free days
-for employee in config['employees']:
-    p = Person(employee['first_name'],
-               employee['last_name'],
-               employee['gender'])
-    try:
-        # leaves
-        for leave in employee['leaves']:
-            p.set_leave(start=leave['start_date'],
-                        end=leave['end_date'])
-        # mandatory shifts
-    except KeyError:
-        pass
-    try:
-        for mandatory_day in employee['mandatory_shifts']:
-            for period in p.leaves:
-                if period[0] <= mandatory_day <= period[1]:
-                    raise Exception(f'Mandatory shift is in a leave period: {mandatory_day}')
-                else:
-                    p.set_mandatory_shift(day=mandatory_day)
-            p.set_leave(start=mandatory_day - timedelta(days=2), end=mandatory_day - timedelta(days=1))
-    except KeyError:
-        pass
-    try:
-        # free days
-        if isinstance(employee['free_days'], list):
-            for free_day in employee['free_days']:
-                if free_day not in employee['mandatory_shifts']:
-                    p.free_days.append(free_day)
-                    p.set_leave(start=free_day, end=free_day)
-                else:
-                    print(f'[ERROR] Free day is in a mandatory shift day: {free_day}')
-        elif isinstance(employee['free_days'], int):
-            i = 1
-            while i <= employee['free_days']:
-                free_day = date(config['year'], config['month'], random.randint(1, num_days))
-                if free_day not in p.mandatory_shift_days:
-                    if free_day in p.free_days:
-                        continue
-                    try:
-                        for leave_days in employee['leaves']:
-                            if leave_days['start_date'] <= free_day <= leave_days['end_date']:
-                                break
-                            else:
-                                p.free_days.append(free_day)
-                                p.set_leave(start=free_day, end=free_day)
-                                i += 1
-                                break
-                    except KeyError:
+        if 'leaves' in employee:
+            for leave in employee['leaves']:
+                p.set_leave(start=leave['start_date'], end=leave['end_date'])
+
+        if 'mandatory_shifts' in employee:
+            for mandatory_day in employee['mandatory_shifts']:
+                for leave_period in p.leaves:
+                    if leave_period[0] <= mandatory_day <= leave_period[1]:
+                        raise Exception(f'Mandatory shift {mandatory_day} is in a leave period')
+                p.set_mandatory_shift(day=mandatory_day)
+                p.set_leave(start=  mandatory_day - timedelta(days=3),
+                            end=    mandatory_day - timedelta(days=1))
+
+        if 'free_days' in employee:
+            if isinstance(employee['free_days'], int):
+                for _ in range(employee['free_days']):
+                    free_day = date(config['year'], config['month'], random.randint(1, num_days))
+                    if free_day not in p.mandatory_shift_days and free_day not in p.free_days:
+                        try:
+                            if all(leave['start_date'] <= free_day <= leave['end_date']
+                                   for leave in employee.get('leaves', [])):
+                                continue
+                        except KeyError:
+                            pass
                         p.free_days.append(free_day)
                         p.set_leave(start=free_day, end=free_day)
-                        i += 1
-    except KeyError:
-        pass
-    employees.append(p)
+            elif isinstance(employee['free_days'], list):
+                for free_day in employee['free_days']:
+                    if free_day not in employee.get('mandatory_shifts', []):
+                        p.free_days.append(free_day)
+                        p.set_leave(start=free_day, end=free_day)
+                    else:
+                        raise Exception(f'Free day {free_day} is in a mandatory shift day')
+        employees.append(p)
+    return employees
 
 
-# Check for last month planning
-def check_last_planning():
+def check_last_planning(employees, config):
     previous_planning = (date(config['year'], config['month'], 1) - timedelta(days=1)).strftime('planning_%Y_%#m.json')
     try:
         with open(previous_planning, 'r') as json_file:
@@ -98,12 +79,7 @@ def check_last_planning():
         print('Last month\'s planning not found')
 
 
-# Init Blacklist (used for backtracking)
-blacklist = []
-
-
-def backtrack(plan, day, team, limit):
-    global blacklist
+def backtrack(plan, day, team, max_people_per_shift, blacklist):
 
     # Exit case (plan is complete)
     if list(plan.values())[-1]:
@@ -127,8 +103,8 @@ def backtrack(plan, day, team, limit):
         elif (person, day) in blacklist:
             continue
         # check if more than 2 people in shift
-        elif len(plan[day]) >= limit:
-            limit = 2
+        elif len(plan[day]) >= max_people_per_shift:
+            max_people_per_shift = 2
             break
         # check if genders match
         elif plan[day] and person.gender != plan[day][0].gender:
@@ -156,42 +132,69 @@ def backtrack(plan, day, team, limit):
             except KeyError:
                 print('No possible solution!')
                 exit()
-            backtrack(plan, day, team, 1)  # previous day
+            backtrack(plan, day, team, 1, blacklist)  # previous day
 
-    backtrack(plan, day + timedelta(days=1), team, limit)  # next day
-
-
-# For shift continuity
-check_last_planning()
-
-# Call to main function
-backtrack(plan=planning,
-          day=list(planning.keys())[0],
-          team=employees,
-          limit=2)
+    backtrack(plan, day + timedelta(days=1), team, max_people_per_shift, blacklist)  # next day
 
 
-planning_2 = dict((day.isoformat(), value) for (day, value) in planning.items())
-
-# Save planning to JSON
-with open(f'planning_{config["year"]}_{config["month"]}.json', 'w') as outfile:
-    json.dump(planning_2, outfile, indent=4, cls=PersonEncoder)
-
-
-# Generate excel planning
-def generate_excel(emp_list: list, plan: dict):
-    employee_dict = {worker.last_name: [] for worker in emp_list}
-    for worker in emp_list:
-        for day, workers in plan.items():
-            if worker in workers:
-                employee_dict[worker.last_name].append('24')
-            elif day in worker.free_days:
-                employee_dict[worker.last_name].append('R')
+# HELPER FUNCTIONS
+def convert_plan_based_on_person(person_list: list, plan: dict):
+    persons_dict = {person.last_name: [] for person in person_list}
+    for person in person_list:
+        for day, persons in plan.items():
+            if person in persons:
+                persons_dict[person.last_name].append('24')
+            elif day in person.free_days:
+                print(day)
+                persons_dict[person.last_name].append('R')
             else:
-                employee_dict[worker.last_name].append('L')
+                persons_dict[person.last_name].append('')
+    return persons_dict
+
+
+# GENERATE OUTPUT FUNCTIONS
+def generate_json_planning(plan):
+    planning_dict = dict((day.isoformat(), value) for (day, value) in plan.items())
+
+    with open(f'planning_{config["year"]}_{config["month"]}.json', 'w') as outfile:
+        json.dump(planning_dict, outfile, indent=4, cls=PersonEncoder)
+
+
+def generate_excel_planning(person_list: list, plan: dict):
+    persons_dict = convert_plan_based_on_person(person_list, plan)
     columns = [d.strftime('%d') for d in plan.keys()]
-    df = pandas.DataFrame.from_dict(data=employee_dict, orient='index', columns=columns)
+    df = pandas.DataFrame.from_dict(data=persons_dict, orient='index', columns=columns)
     df.to_excel(f'planning_{config["year"]}_{config["month"]}.xlsx')
 
 
-generate_excel(employees, planning)
+def generate_mattermost_table(person_list: list, plan: dict):
+    persons_dict = convert_plan_based_on_person(person_list, plan)
+    plan_date = list(plan.keys())[0]
+    month = {1: 'Ianuarie', 2: 'Februarie', 3: 'Martie', 4: 'Aprilie',
+             5: 'Mai', 6: 'Iunie', 7: 'Iulie', 8: 'August',
+             9: 'Septembrie', 10: 'Octombrie', 11: 'Noiembrie', 12: 'Decembrie'}
+    print('Copiaza tot ce este mai jos si pune pe Mattermost in canalul Planificari:')
+    print(f'#### Planificarea serviciilor la CRISC pentru luna {month[plan_date.month]} {plan_date.year}')
+    print('||' + '|'.join([d.strftime('%d') for d in plan.keys()]) + '|')
+    print('|:-|' + '|'.join(['-' for key in plan.keys()]) + '|')
+    for person in persons_dict.keys():
+        print(f'| {person} | ' + '|'.join(persons_dict[person]) + '|')
+
+
+if __name__ == '__main__':
+    config = load_config()
+    planning = initialize_planning(config['year'], config['month'])
+    num_days = calendar.monthrange(config['year'], config['month'])[1]
+    employees = initialize_team(config, num_days)
+    check_last_planning(employees, config)
+
+    # Call to main function
+    backtrack(plan=planning,
+              day=list(planning.keys())[0],
+              team=employees,
+              max_people_per_shift=2,
+              blacklist=[])
+
+    # generate_json_planning(planning)
+    # generate_excel_planning(employees, planning)
+    generate_mattermost_table(employees, planning)
